@@ -58,3 +58,44 @@ describe('generateReportDocx', () => {
     expect(text).toContain('validada por um profissional jurídico')
   })
 })
+
+const emptyArraysAnalysis: AnalysisResult = {
+  ...analysis,
+  criticalPoints: [],
+  missingClauses: [],
+  modelDivergences: [],
+  suggestedAdjustments: [],
+  humanValidationChecklist: [],
+}
+
+describe('generateReportPdf and generateReportDocx with empty optional/array fields', () => {
+  it('generateReportPdf does not throw and includes the mandatory disclaimer when all arrays are empty', async () => {
+    const buffer = await generateReportPdf(emptyArraysAnalysis, meta)
+    expect(buffer.length).toBeGreaterThan(0)
+    const text = await extractTextFromPdf(buffer)
+    expect(text).toContain('validada por um profissional jurídico')
+  })
+
+  it('generateReportDocx does not throw and includes the mandatory disclaimer when all arrays are empty', async () => {
+    const buffer = await generateReportDocx(emptyArraysAnalysis, meta)
+    expect(buffer.length).toBeGreaterThan(0)
+    const text = await extractTextFromDocx(buffer)
+    expect(text).toContain('validada por um profissional jurídico')
+  })
+})
+
+describe('generateReportPdf and generateReportDocx content parity', () => {
+  it('produces PDF and DOCX with equivalent key facts extracted from the same fixture', async () => {
+    const pdfBuffer = await generateReportPdf(analysis, meta)
+    const docxBuffer = await generateReportDocx(analysis, meta)
+
+    const pdfText = await extractTextFromPdf(pdfBuffer)
+    const docxText = await extractTextFromDocx(docxBuffer)
+
+    for (const text of [pdfText, docxText]) {
+      expect(text).toContain(meta.contractName)
+      expect(text).toContain(analysis.generalRisk)
+      expect(text).toContain('resumo executivo de teste')
+    }
+  })
+})
