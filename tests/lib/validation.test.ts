@@ -47,4 +47,24 @@ describe('validateUploadedFile', () => {
     const result = validateUploadedFile(file, 'contrato')
     expect(result.valid).toBe(true)
   })
+
+  it('returns invalid for an empty file', () => {
+    const file = makeFile('contrato.pdf', 'application/pdf', 0)
+    const result = validateUploadedFile(file, 'contrato')
+    expect(result.valid).toBe(false)
+    if (!result.valid) expect(result.error.code).toBe('FILE_EMPTY')
+  })
+
+  it('returns valid when MIME type is missing but extension is valid', () => {
+    const file = makeFile('contrato.pdf', '', 1024)
+    const result = validateUploadedFile(file, 'contrato')
+    expect(result.valid).toBe(true)
+  })
+
+  it('returns invalid when MIME type is provided but does not match the extension', () => {
+    const file = makeFile('contrato.pdf', 'text/plain', 1024)
+    const result = validateUploadedFile(file, 'contrato')
+    expect(result.valid).toBe(false)
+    if (!result.valid) expect(result.error.code).toBe('INVALID_MIME_TYPE')
+  })
 })

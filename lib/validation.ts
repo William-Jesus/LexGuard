@@ -6,6 +6,7 @@ export const ALLOWED_MIME_TYPES = [
 
 export type ValidationErrorCode =
   | 'FILE_MISSING'
+  | 'FILE_EMPTY'
   | 'FILE_TOO_LARGE'
   | 'INVALID_EXTENSION'
   | 'INVALID_MIME_TYPE'
@@ -32,6 +33,13 @@ export function validateUploadedFile(file: File | null, label: string): Validati
     return { valid: false, error: { code: 'FILE_MISSING', message: `Envie o arquivo: ${label}.` } }
   }
 
+  if (file.size === 0) {
+    return {
+      valid: false,
+      error: { code: 'FILE_EMPTY', message: `${label} está vazio. Envie um arquivo válido.` },
+    }
+  }
+
   const extension = getExtension(file.name)
   if (!ALLOWED_EXTENSIONS.includes(extension as (typeof ALLOWED_EXTENSIONS)[number])) {
     return {
@@ -43,7 +51,7 @@ export function validateUploadedFile(file: File | null, label: string): Validati
     }
   }
 
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+  if (file.type !== '' && !ALLOWED_MIME_TYPES.includes(file.type)) {
     return {
       valid: false,
       error: {
