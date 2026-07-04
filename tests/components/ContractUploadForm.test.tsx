@@ -38,4 +38,20 @@ describe('ContractUploadForm', () => {
     render(<ContractUploadForm onSubmit={vi.fn()} isSubmitting={false} errorMessage="Arquivo inválido." />)
     expect(screen.getByRole('alert')).toHaveTextContent('Arquivo inválido.')
   })
+
+  it('shows a validation message and does not submit when a required file is missing', async () => {
+    const user = userEvent.setup()
+    const handleSubmit = vi.fn()
+
+    render(<ContractUploadForm onSubmit={handleSubmit} isSubmitting={false} />)
+
+    await user.type(screen.getByLabelText('Nome do contrato'), 'NDA Fornecedor X')
+    await user.selectOptions(screen.getByLabelText('Tipo do contrato'), 'NDA')
+    await user.upload(screen.getByLabelText(/Contrato a ser analisado/), makeFile('contrato.pdf', 'application/pdf'))
+    // modelFile intentionally left unselected
+    await user.click(screen.getByRole('button', { name: 'Analisar contrato' }))
+
+    expect(handleSubmit).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Envie o contrato e o modelo aprovado antes de continuar.')
+  })
 })

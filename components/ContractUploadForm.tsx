@@ -15,11 +15,17 @@ export function ContractUploadForm({ onSubmit, isSubmitting, errorMessage }: Con
   const [contractFile, setContractFile] = useState<File | null>(null)
   const [modelFile, setModelFile] = useState<File | null>(null)
   const [observations, setObservations] = useState('')
+  const [fileError, setFileError] = useState<string | undefined>(undefined)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!contractFile || !modelFile) return
+    if (!contractFile || !modelFile) {
+      setFileError('Envie o contrato e o modelo aprovado antes de continuar.')
+      return
+    }
+
+    setFileError(undefined)
 
     const formData = new FormData()
     formData.set('contractName', contractName)
@@ -106,9 +112,9 @@ export function ContractUploadForm({ onSubmit, isSubmitting, errorMessage }: Con
         />
       </div>
 
-      {errorMessage && (
+      {(fileError || errorMessage) && (
         <p role="alert" className="text-sm text-red-600">
-          {errorMessage}
+          {fileError ?? errorMessage}
         </p>
       )}
 
