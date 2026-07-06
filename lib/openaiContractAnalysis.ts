@@ -65,14 +65,19 @@ export async function analyzeContract(
 ): Promise<AnalysisResult> {
   const model = process.env.OPENAI_MODEL ?? 'gpt-4o'
 
-  const response = await client.chat.completions.create({
-    model,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: CONTRACT_REVIEW_SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(input) },
-    ],
-  })
+  let response
+  try {
+    response = await client.chat.completions.create({
+      model,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: CONTRACT_REVIEW_SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(input) },
+      ],
+    })
+  } catch {
+    throw new AiAnalysisError('Não foi possível se comunicar com o serviço de IA.')
+  }
 
   const rawContent = (response as any).choices?.[0]?.message?.content
 

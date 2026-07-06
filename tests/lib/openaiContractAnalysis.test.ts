@@ -61,4 +61,21 @@ describe('analyzeContract', () => {
     const client = makeMockClient(JSON.stringify({ foo: 'bar' }))
     await expect(analyzeContract(input, client)).rejects.toThrow(AiAnalysisError)
   })
+
+  it('throws AiAnalysisError (not the raw SDK error) when the OpenAI call itself rejects', async () => {
+    const rawError = Object.assign(new Error('401 Incorrect API key provided'), {
+      status: 401,
+      headers: { 'cf-ray': 'abc123', 'set-cookie': '__cf_bm=secret' },
+    })
+    const client = {
+      chat: {
+        completions: {
+          create: vi.fn().mockRejectedValue(rawError),
+        },
+      },
+    } as any
+
+    await expect(analyzeContract(input, client)).rejects.toThrow(AiAnalysisError)
+    await expect(analyzeContract(input, client)).rejects.not.toThrow(/cf-ray|set-cookie|401/)
+  })
 })
