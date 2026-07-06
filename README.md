@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# contract-review-service (LexGuard)
 
-## Getting Started
+Ferramenta interna para análise preliminar de contratos com IA. Recebe um contrato e um modelo aprovado, e devolve um relatório estruturado (resumo, riscos, cláusulas ausentes, divergências e sugestões), exportável em PDF e DOCX.
 
-First, run the development server:
+A IA nunca aprova juridicamente um contrato, nunca declara que ele está correto e nunca reescreve o contrato original. Toda sugestão é apresentada como pendente de validação humana.
+
+## Instalação
+
+```bash
+npm install
+```
+
+## Variáveis de ambiente
+
+Copie `.env.example` para `.env` e preencha:
+
+```
+OPENAI_API_KEY=       # obrigatória
+OPENAI_MODEL=gpt-4o   # opcional, default gpt-4o
+MAX_FILE_SIZE_MB=10   # opcional, default 10
+```
+
+## Rodando localmente
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test
+```
 
-## Learn More
+## Exemplo de uso
 
-To learn more about Next.js, take a look at the following resources:
+1. Preencha o nome do contrato (ex: "NDA Fornecedor X").
+2. Escolha o tipo de contrato.
+3. Envie o contrato a ser analisado (PDF com texto selecionável ou DOCX).
+4. Envie o modelo aprovado de referência (PDF ou DOCX).
+5. Opcionalmente, adicione observações.
+6. Clique em "Analisar contrato" e aguarde o resultado.
+7. Exporte o relatório em PDF ou DOCX, se desejar.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Entregue nesta Sprint 1
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Upload de contrato + modelo aprovado com validação de extensão e tamanho.
+- Extração de texto de PDF (com texto selecionável) e DOCX, com mensagem de erro clara quando não é possível extrair.
+- Chamada à OpenAI retornando análise estruturada e validada contra um schema.
+- Tela de resultado com resumo, dados principais, risco geral, pontos críticos, cláusulas ausentes, divergências, sugestões e checklist de validação humana.
+- Exportação do relatório em PDF e DOCX, sempre com o aviso obrigatório de validação humana.
+- Processamento 100% em memória — nada é persistido em disco ou banco de dados.
+- Logs limitados a metadados operacionais (tipo de contrato, risco, duração), sem expor texto de contratos.
 
-## Deploy on Vercel
+## Fora de escopo desta Sprint (próximas)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Login, dashboard avançado, workflow de aprovação, histórico persistente, banco vetorial, edição colaborativa, assinatura digital, integração com processos jurídicos, aprovação/reescrita automática do contrato.
