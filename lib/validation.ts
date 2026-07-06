@@ -24,7 +24,8 @@ function getExtension(fileName: string): string {
 }
 
 export function getMaxFileSizeBytes(): number {
-  const mb = Number(process.env.MAX_FILE_SIZE_MB ?? '10')
+  const parsed = Number(process.env.MAX_FILE_SIZE_MB ?? '10')
+  const mb = Number.isFinite(parsed) ? parsed : 10
   return mb * 1024 * 1024
 }
 

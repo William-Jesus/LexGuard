@@ -17,7 +17,7 @@ import { Document, Packer, Paragraph } from 'docx'
 async function buildDocxFile(name: string, text: string): Promise<File> {
   const doc = new Document({ sections: [{ children: [new Paragraph(text)] }] })
   const buffer = await Packer.toBuffer(doc)
-  return new File([buffer], name, {
+  return new File([new Uint8Array(buffer)], name, {
     type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   })
 }
