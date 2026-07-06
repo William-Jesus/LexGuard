@@ -54,6 +54,9 @@ export const ChecklistItemSchema = z.object({
 })
 export type ChecklistItem = z.infer<typeof ChecklistItemSchema>
 
+export const MANDATORY_DISCLAIMER =
+  'Esta análise foi gerada por IA e deve ser validada por um profissional jurídico antes de qualquer decisão ou uso formal.'
+
 export const AnalysisResultSchema = z.object({
   executiveSummary: z.string(),
   contractType: z.string(),

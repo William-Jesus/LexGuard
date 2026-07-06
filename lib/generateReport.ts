@@ -2,6 +2,7 @@ import React from 'react'
 import { renderToBuffer, Document as PdfDocument, Page, Text, StyleSheet } from '@react-pdf/renderer'
 import { Document as DocxDocument, Packer, Paragraph, HeadingLevel } from 'docx'
 import type { AnalysisResult, AnalysisMeta } from '@/types/contract'
+import { MANDATORY_DISCLAIMER } from '@/types/contract'
 
 const pdfStyles = StyleSheet.create({
   page: { padding: 32, fontSize: 11 },
@@ -67,7 +68,7 @@ function ReportPdfDocument({ analysis, meta }: { analysis: AnalysisResult; meta:
         React.createElement(Text, { key: `checklist-${i}`, style: pdfStyles.text }, `[ ] ${item.item}`)
       ),
 
-      React.createElement(Text, { style: pdfStyles.disclaimer }, analysis.mandatoryDisclaimer)
+      React.createElement(Text, { style: pdfStyles.disclaimer }, MANDATORY_DISCLAIMER)
     )
   )
 }
@@ -118,7 +119,7 @@ export async function generateReportDocx(analysis: AnalysisResult, meta: Analysi
     new Paragraph({ text: 'Checklist para validação humana', heading: HeadingLevel.HEADING_2 }),
     ...analysis.humanValidationChecklist.map((item) => new Paragraph({ text: `[ ] ${item.item}` })),
 
-    new Paragraph({ text: analysis.mandatoryDisclaimer }),
+    new Paragraph({ text: MANDATORY_DISCLAIMER }),
   ]
 
   const doc = new DocxDocument({ sections: [{ children: paragraphs }] })

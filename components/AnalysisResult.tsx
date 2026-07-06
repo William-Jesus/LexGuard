@@ -1,4 +1,5 @@
 import type { AnalysisResult as AnalysisResultType, AnalysisMeta } from '@/types/contract'
+import { MANDATORY_DISCLAIMER } from '@/types/contract'
 import { RiskBadge } from './RiskBadge'
 import { SuggestionList } from './SuggestionList'
 import { HumanValidationChecklist } from './HumanValidationChecklist'
@@ -81,7 +82,7 @@ export function AnalysisResult({ analysis, meta }: { analysis: AnalysisResultTyp
         <HumanValidationChecklist items={analysis.humanValidationChecklist} />
       </section>
 
-      <p className="rounded bg-amber-50 p-3 text-sm font-medium text-amber-800">{analysis.mandatoryDisclaimer}</p>
+      <p className="rounded bg-amber-50 p-3 text-sm font-medium text-amber-800">{MANDATORY_DISCLAIMER}</p>
     </div>
   )
 }
