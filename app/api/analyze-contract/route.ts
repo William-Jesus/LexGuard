@@ -4,7 +4,33 @@ import { extractText } from '@/lib/extractText'
 import { analyzeContract } from '@/lib/openaiContractAnalysis'
 import { EXTRACTION_ERROR_MESSAGE } from '@/types/contract'
 
+const MAX_ESTIMATED_TOKENS = 100_000
+const PROMPT_INJECTION_PATTERN = /ignore\s+(previous|all|prior)\s+instructions?|<\s*system\s*>|system\s*:/i
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_WINDOW_MS = 15 * 60 * 1000
+const RATE_MAX = 5
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_MAX) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Muitas requisições. Tente novamente em 15 minutos.', code: 'RATE_LIMITED' },
+      { status: 429 }
+    )
+  }
   let formData: FormData
   try {
     formData = await req.formData()
@@ -19,7 +45,10 @@ export async function POST(req: NextRequest) {
 
   const contractName = formData.get('contractName') as string
   const contractType = formData.get('contractType') as string
-  const observations = formData.get('observations') as string | undefined
+  const rawObservations = formData.get('observations') as string | undefined
+  const observations = rawObservations && PROMPT_INJECTION_PATTERN.test(rawObservations)
+    ? undefined
+    : rawObservations
   const contractFile = formData.get('contractFile') as File
   const modelFile = formData.get('modelFile') as File
 
@@ -42,6 +71,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED_MODEL' }, { status: 422 })
   }
 
+  const estimatedTokens = Math.ceil((contractText.length + modelText.length) / 4)
+  if (estimatedTokens > MAX_ESTIMATED_TOKENS) {
+    return NextResponse.json(
+      { error: 'Contrato muito longo para análise. Reduza o documento e tente novamente.', code: 'CONTENT_TOO_LARGE' },
+      { status: 413 }
+    )
+  }
+
   try {
     const analysis = await analyzeContract({
       contractText,
@@ -55,7 +92,7 @@ export async function POST(req: NextRequest) {
       meta: { contractName, contractType, analyzedAt: new Date().toISOString() },
     })
   } catch (err: unknown) {
-    if (err instanceof Error && err.message === 'INVALID_AI_RESPONSE') {
+    if (err instanceof Error && err.message.startsWith('INVALID_AI_RESPONSE')) {
       return NextResponse.json(
         { error: 'Não foi possível gerar a análise no momento. Tente novamente.', code: 'AI_RESPONSE_INVALID' },
         { status: 502 }

@@ -60,24 +60,29 @@ Retorne a análise no seguinte formato JSON:
   "mandatoryDisclaimer": "Esta análise foi gerada por IA e deve ser validada por um profissional jurídico antes de qualquer decisão ou uso formal."
 }`
 
-  const response = await getOpenAI().chat.completions.create({
-    model,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-  })
+  const response = await getOpenAI().chat.completions.create(
+    {
+      model,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userPrompt },
+      ],
+    },
+    { timeout: 30000 }
+  )
 
   const raw = response.choices[0]?.message?.content ?? ''
+  if (!raw) throw new Error('AI response content is empty')
+
   const parsed = JSON.parse(raw)
   const validated = ContractAnalysisSchema.safeParse(parsed)
 
   const duration = Date.now() - start
 
   if (!validated.success) {
-    console.log(`[LexGuard] analysis failed schema validation | type=${params.contractType} | duration=${duration}ms`)
-    throw new Error('INVALID_AI_RESPONSE')
+    console.log(`[LexGuard] analysis failed schema validation | type=${params.contractType} | duration=${duration}ms | issues=${JSON.stringify(validated.error.issues)}`)
+    throw new Error(`INVALID_AI_RESPONSE: ${validated.error.issues.map(i => i.message).join(', ')}`)
   }
 
   console.log(`[LexGuard] analysis ok | type=${params.contractType} | risk=${validated.data.generalRisk} | duration=${duration}ms`)
