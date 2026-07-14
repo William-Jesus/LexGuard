@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { AppHeader } from '@/components/AppHeader'
 import { AnalysisResult } from '@/components/AnalysisResult'
 import { ContractAnalysis } from '@/types/contract'
 
@@ -28,27 +29,26 @@ export default function HistoryDetailPage() {
   }, [id])
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 bg-gray-900 rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">LG</span>
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-gray-900">LexGuard</h1>
-              <p className="text-xs text-gray-500">Histórico</p>
-            </div>
-          </div>
-          <Link href="/history" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-            ← Voltar ao histórico
+    <main className="min-h-screen bg-[#F7F6F3]">
+      <AppHeader
+        subtitle="Histórico"
+        extra={
+          <Link
+            href="/history"
+            className="text-sm text-white/60 hover:text-white transition-colors"
+          >
+            ← Histórico
           </Link>
-        </div>
-      </header>
+        }
+      />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {loading && <p className="text-sm text-gray-500 text-center py-12">Carregando...</p>}
-        {error && <p className="text-sm text-red-600 text-center py-12">{error}</p>}
+      <div className="max-w-5xl mx-auto px-4 py-10">
+        {loading && (
+          <p className="text-sm text-gray-400 text-center py-16">Carregando…</p>
+        )}
+        {error && (
+          <p className="text-sm text-red-600 text-center py-16">{error}</p>
+        )}
         {data && (
           <AnalysisResult
             analysis={data.full_analysis}

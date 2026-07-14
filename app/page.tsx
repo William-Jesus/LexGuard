@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import Link from 'next/link'
+import { AppHeader } from '@/components/AppHeader'
 import { ContractUploadForm } from '@/components/ContractUploadForm'
 import { AnalysisResult } from '@/components/AnalysisResult'
 import { ContractAnalysis } from '@/types/contract'
@@ -13,46 +13,28 @@ interface AnalysisResultData {
 export default function Home() {
   const [result, setResult] = useState<AnalysisResultData | null>(null)
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    window.location.href = '/login'
-  }
-
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 bg-gray-900 rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs font-bold">LG</span>
-            </div>
-            <div>
-              <h1 className="text-sm font-bold text-gray-900">LexGuard</h1>
-              <p className="text-xs text-gray-500">Revisão de contratos assistida por IA</p>
-            </div>
-          </div>
-          <nav className="flex items-center gap-4">
-            {result ? (
-              <button onClick={() => setResult(null)} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-                ← Nova análise
-              </button>
-            ) : (
-              <>
-                <Link href="/history" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Histórico</Link>
-                <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Dashboard</Link>
-              </>
-            )}
-            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">Sair</button>
-          </nav>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#F7F6F3]">
+      <AppHeader
+        subtitle="Revisão de contratos assistida por IA"
+        extra={
+          result ? (
+            <button
+              onClick={() => setResult(null)}
+              className="text-sm text-white/60 hover:text-white transition-colors"
+            >
+              ← Nova análise
+            </button>
+          ) : undefined
+        }
+      />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-10">
         {!result ? (
           <div className="max-w-2xl mx-auto">
-            <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Análise de Contrato</h2>
-              <p className="text-gray-500 text-sm">
+            <div className="mb-8 text-center">
+              <h2 className="text-2xl font-bold text-[#1C2B4A] mb-2">Análise de Contrato</h2>
+              <p className="text-gray-500 text-sm leading-relaxed">
                 Envie o contrato e o modelo aprovado para receber uma análise estruturada de riscos,
                 cláusulas ausentes e divergências.
               </p>
