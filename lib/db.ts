@@ -13,6 +13,7 @@ export function getDb(): Database.Database {
   if (_db) return _db
   _db = new Database(DB_PATH)
   _db.pragma('journal_mode = WAL')
+  _db.pragma('foreign_keys = ON')
   _db.exec(`
     CREATE TABLE IF NOT EXISTS analyses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,6 +30,21 @@ export function getDb(): Database.Database {
       filename TEXT NOT NULL,
       content TEXT NOT NULL,
       uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS kb_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS kb_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      doc_id INTEGER NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE,
+      chunk_index INTEGER NOT NULL,
+      chunk_text TEXT NOT NULL,
+      embedding TEXT NOT NULL
     );
   `)
   return _db

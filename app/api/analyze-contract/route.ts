@@ -4,6 +4,7 @@ import { extractText } from '@/lib/extractText'
 import { analyzeContract } from '@/lib/openaiContractAnalysis'
 import { EXTRACTION_ERROR_MESSAGE } from '@/types/contract'
 import { getDb } from '@/lib/db'
+import { searchKnowledgeBase, formatKbContext, countKbDocsForCategory } from '@/lib/rag'
 
 const MAX_ESTIMATED_TOKENS = 100_000
 const PROMPT_INJECTION_PATTERN = /ignore\s+(previous|all|prior)\s+instructions?|<\s*system\s*>|system\s*:/i
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       { status: 429 }
     )
   }
+
   let formData: FormData
   try {
     formData = await req.formData()
@@ -51,12 +53,9 @@ export async function POST(req: NextRequest) {
     ? undefined
     : rawObservations
   const contractFile = formData.get('contractFile') as File
-  const modelFile = formData.get('modelFile') as File | null
   const templateId = formData.get('templateId') as string | null
 
   let contractText: string
-  let modelText: string
-
   try {
     const contractBuffer = Buffer.from(await contractFile.arrayBuffer())
     contractText = await extractText(contractFile.name, contractBuffer)
@@ -65,24 +64,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED' }, { status: 422 })
   }
 
+  let modelText: string | undefined
+  let kbContext: string | undefined
+
   if (templateId) {
     const db = getDb()
     const tmpl = db.prepare('SELECT content FROM templates WHERE id = ?').get(Number(templateId)) as { content: string } | undefined
     if (!tmpl) return NextResponse.json({ error: 'Template não encontrado.', code: 'TEMPLATE_NOT_FOUND' }, { status: 404 })
     modelText = tmpl.content
-  } else if (modelFile) {
-    try {
-      const modelBuffer = Buffer.from(await modelFile.arrayBuffer())
-      modelText = await extractText(modelFile.name, modelBuffer)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : EXTRACTION_ERROR_MESSAGE
-      return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED_MODEL' }, { status: 422 })
-    }
-  } else {
-    return NextResponse.json({ error: 'Envie um modelo ou selecione um template.', code: 'MISSING_MODEL' }, { status: 400 })
   }
 
-  const estimatedTokens = Math.ceil((contractText.length + modelText.length) / 4)
+  // Always search KB if available — enriches both template and KB-only flows
+  const kbCount = countKbDocsForCategory(contractType)
+  if (kbCount > 0) {
+    try {
+      const results = await searchKnowledgeBase(contractText.slice(0, 3000), contractType, templateId ? 3 : 6)
+      if (results.length > 0) {
+        kbContext = formatKbContext(results)
+        console.log(`[LexGuard] KB search: category=${contractType} | docs=${kbCount} | results=${results.length}`)
+      }
+    } catch (err) {
+      console.error('[LexGuard] KB search failed:', err)
+      if (!modelText) {
+        return NextResponse.json({ error: 'Erro ao buscar base de conhecimento.', code: 'KB_SEARCH_FAILED' }, { status: 500 })
+      }
+    }
+  }
+
+  if (!modelText && !kbContext) {
+    return NextResponse.json(
+      { error: 'Adicione documentos à base de conhecimento para esta categoria antes de analisar.', code: 'MISSING_MODEL' },
+      { status: 400 }
+    )
+  }
+
+  const refLength = (modelText?.length ?? 0) + (kbContext?.length ?? 0)
+  const estimatedTokens = Math.ceil((contractText.length + refLength) / 4)
   if (estimatedTokens > MAX_ESTIMATED_TOKENS) {
     return NextResponse.json(
       { error: 'Contrato muito longo para análise. Reduza o documento e tente novamente.', code: 'CONTENT_TOO_LARGE' },
@@ -94,6 +111,7 @@ export async function POST(req: NextRequest) {
     const analysis = await analyzeContract({
       contractText,
       modelText,
+      kbContext,
       contractType,
       contractName,
       observations: observations || undefined,

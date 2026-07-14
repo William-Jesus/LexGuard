@@ -18,7 +18,8 @@ Analise os seguintes pontos: partes envolvidas, objeto do contrato, prazo, valor
 
 export async function analyzeContract(params: {
   contractText: string
-  modelText: string
+  modelText?: string
+  kbContext?: string
   contractType: string
   contractName: string
   observations?: string
@@ -26,15 +27,24 @@ export async function analyzeContract(params: {
   const model = process.env.OPENAI_MODEL ?? 'gpt-4o'
   const start = Date.now()
 
+  const referenceSection = params.modelText
+    ? `=== MODELO APROVADO ===\n${params.modelText}`
+    : params.kbContext
+      ? `=== BASE DE CONTRATOS DA EMPRESA ===\n${params.kbContext}`
+      : '=== SEM MODELO DE REFERÊNCIA ==='
+
+  const kbNote = !params.modelText && params.kbContext
+    ? '\nNota: O campo "modelDivergences" deve listar divergências em relação aos padrões encontrados na base de contratos da empresa.'
+    : ''
+
   const userPrompt = `Tipo de contrato: ${params.contractType}
 Nome: ${params.contractName}
-${params.observations ? `Observações adicionais: ${params.observations}` : ''}
+${params.observations ? `Observações adicionais: ${params.observations}` : ''}${kbNote}
 
 === CONTRATO A REVISAR ===
 ${params.contractText}
 
-=== MODELO APROVADO ===
-${params.modelText}
+${referenceSection}
 
 Retorne a análise no seguinte formato JSON:
 {
@@ -85,6 +95,6 @@ Retorne a análise no seguinte formato JSON:
     throw new Error(`INVALID_AI_RESPONSE: ${validated.error.issues.map(i => i.message).join(', ')}`)
   }
 
-  console.log(`[LexGuard] analysis ok | type=${params.contractType} | risk=${validated.data.generalRisk} | duration=${duration}ms`)
+  console.log(`[LexGuard] analysis ok | type=${params.contractType} | risk=${validated.data.generalRisk} | kb=${!!params.kbContext} | duration=${duration}ms`)
   return validated.data
 }
