@@ -43,3 +43,6 @@ next-env.d.ts
 # local artifacts
 ruvector.db
 .worktrees/
+
+# SQLite database (runtime data, not source)
+/data/*.db

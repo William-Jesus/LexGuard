@@ -38,6 +38,7 @@ export function validateUploadPayload(formData: FormData): ValidationError | nul
   const contractType = formData.get('contractType')
   const contractFile = formData.get('contractFile') as File | null
   const modelFile = formData.get('modelFile') as File | null
+  const templateId = formData.get('templateId')
 
   if (!contractName || typeof contractName !== 'string' || !contractName.trim()) {
     return { code: 'MISSING_NAME', message: 'Nome do contrato é obrigatório.' }
@@ -48,15 +49,18 @@ export function validateUploadPayload(formData: FormData): ValidationError | nul
   if (!contractFile || contractFile.size === 0) {
     return { code: 'MISSING_CONTRACT', message: 'Arquivo do contrato é obrigatório.' }
   }
-  if (!modelFile || modelFile.size === 0) {
-    return { code: 'MISSING_MODEL', message: 'Arquivo do modelo aprovado é obrigatório.' }
-  }
 
   const contractErr = validateFile(contractFile, 'Contrato')
   if (contractErr) return contractErr
 
-  const modelErr = validateFile(modelFile, 'Modelo aprovado')
-  if (modelErr) return modelErr
+  // modelFile é obrigatório apenas quando não há templateId
+  if (!templateId) {
+    if (!modelFile || modelFile.size === 0) {
+      return { code: 'MISSING_MODEL', message: 'Arquivo do modelo aprovado é obrigatório.' }
+    }
+    const modelErr = validateFile(modelFile, 'Modelo aprovado')
+    if (modelErr) return modelErr
+  }
 
   return null
 }

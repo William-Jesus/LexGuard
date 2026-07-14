@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import Link from 'next/link'
 import { ContractUploadForm } from '@/components/ContractUploadForm'
 import { AnalysisResult } from '@/components/AnalysisResult'
 import { ContractAnalysis } from '@/types/contract'
@@ -11,6 +12,11 @@ interface AnalysisResultData {
 
 export default function Home() {
   const [result, setResult] = useState<AnalysisResultData | null>(null)
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -25,14 +31,19 @@ export default function Home() {
               <p className="text-xs text-gray-500">Revisão de contratos assistida por IA</p>
             </div>
           </div>
-          {result && (
-            <button
-              onClick={() => setResult(null)}
-              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-            >
-              ← Nova análise
-            </button>
-          )}
+          <nav className="flex items-center gap-4">
+            {result ? (
+              <button onClick={() => setResult(null)} className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                ← Nova análise
+              </button>
+            ) : (
+              <>
+                <Link href="/history" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Histórico</Link>
+                <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Dashboard</Link>
+              </>
+            )}
+            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">Sair</button>
+          </nav>
         </div>
       </header>
 

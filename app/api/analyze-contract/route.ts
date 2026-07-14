@@ -3,6 +3,7 @@ import { validateUploadPayload } from '@/lib/validation'
 import { extractText } from '@/lib/extractText'
 import { analyzeContract } from '@/lib/openaiContractAnalysis'
 import { EXTRACTION_ERROR_MESSAGE } from '@/types/contract'
+import { getDb } from '@/lib/db'
 
 const MAX_ESTIMATED_TOKENS = 100_000
 const PROMPT_INJECTION_PATTERN = /ignore\s+(previous|all|prior)\s+instructions?|<\s*system\s*>|system\s*:/i
@@ -50,7 +51,8 @@ export async function POST(req: NextRequest) {
     ? undefined
     : rawObservations
   const contractFile = formData.get('contractFile') as File
-  const modelFile = formData.get('modelFile') as File
+  const modelFile = formData.get('modelFile') as File | null
+  const templateId = formData.get('templateId') as string | null
 
   let contractText: string
   let modelText: string
@@ -63,12 +65,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED' }, { status: 422 })
   }
 
-  try {
-    const modelBuffer = Buffer.from(await modelFile.arrayBuffer())
-    modelText = await extractText(modelFile.name, modelBuffer)
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : EXTRACTION_ERROR_MESSAGE
-    return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED_MODEL' }, { status: 422 })
+  if (templateId) {
+    const db = getDb()
+    const tmpl = db.prepare('SELECT content FROM templates WHERE id = ?').get(Number(templateId)) as { content: string } | undefined
+    if (!tmpl) return NextResponse.json({ error: 'Template não encontrado.', code: 'TEMPLATE_NOT_FOUND' }, { status: 404 })
+    modelText = tmpl.content
+  } else if (modelFile) {
+    try {
+      const modelBuffer = Buffer.from(await modelFile.arrayBuffer())
+      modelText = await extractText(modelFile.name, modelBuffer)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : EXTRACTION_ERROR_MESSAGE
+      return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED_MODEL' }, { status: 422 })
+    }
+  } else {
+    return NextResponse.json({ error: 'Envie um modelo ou selecione um template.', code: 'MISSING_MODEL' }, { status: 400 })
   }
 
   const estimatedTokens = Math.ceil((contractText.length + modelText.length) / 4)
@@ -87,9 +98,20 @@ export async function POST(req: NextRequest) {
       contractName,
       observations: observations || undefined,
     })
+
+    const analyzedAt = new Date().toISOString()
+    try {
+      getDb().prepare(
+        `INSERT INTO analyses (filename, contract_type, risk_level, summary, full_analysis, analyzed_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(contractFile.name, contractType, analysis.generalRisk, analysis.executiveSummary, JSON.stringify(analysis), analyzedAt)
+    } catch (dbErr) {
+      console.error('[LexGuard] failed to save analysis to db:', dbErr)
+    }
+
     return NextResponse.json({
       analysis,
-      meta: { contractName, contractType, analyzedAt: new Date().toISOString() },
+      meta: { contractName, contractType, analyzedAt },
     })
   } catch (err: unknown) {
     if (err instanceof Error && err.message.startsWith('INVALID_AI_RESPONSE')) {
