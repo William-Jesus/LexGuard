@@ -75,8 +75,8 @@ export function ContractUploadForm({ onResult }: Props) {
       }
 
       onResult(data)
-    } catch {
-      setError('Erro ao conectar com o servidor. Tente novamente.')
+    } catch (err) {
+      setError(err instanceof Error ? `[debug] ${err.message}` : 'Erro ao conectar com o servidor.')
     } finally {
       setLoading(false)
     }
