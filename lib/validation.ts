@@ -43,6 +43,9 @@ export function validateUploadPayload(formData: FormData): ValidationError | nul
   if (!contractName || typeof contractName !== 'string' || !contractName.trim()) {
     return { code: 'MISSING_NAME', message: 'Nome do contrato é obrigatório.' }
   }
+  if (contractName.length > 200) {
+    return { code: 'NAME_TOO_LONG', message: 'Nome do contrato muito longo (máx. 200 caracteres).' }
+  }
   if (!contractType || typeof contractType !== 'string') {
     return { code: 'MISSING_TYPE', message: 'Tipo de contrato é obrigatório.' }
   }

@@ -3,6 +3,10 @@ import { getIronSession } from 'iron-session'
 import { sessionOptions, SessionData } from '@/lib/session'
 
 export async function POST(req: NextRequest) {
+  if (!process.env.AUTH_USER || !process.env.AUTH_PASS) {
+    return NextResponse.json({ error: 'Servidor não configurado corretamente.' }, { status: 503 })
+  }
+
   const { username, password } = await req.json()
 
   if (!username || !password || username !== process.env.AUTH_USER || password !== process.env.AUTH_PASS) {

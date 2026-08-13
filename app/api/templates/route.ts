@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { extractText } from '@/lib/extractText'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 export async function GET() {
   const db = getDb()
@@ -9,6 +10,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req)
+  if (!checkRateLimit(ip, 10 * 60 * 1000, 10)) {
+    return NextResponse.json({ error: 'Muitas requisições. Tente novamente em 10 minutos.' }, { status: 429 })
+  }
+
   let formData: FormData
   try {
     formData = await req.formData()
@@ -22,6 +28,9 @@ export async function POST(req: NextRequest) {
   if (!name || !file) {
     return NextResponse.json({ error: 'name e file são obrigatórios.' }, { status: 400 })
   }
+  if (name.length > 200) {
+    return NextResponse.json({ error: 'Nome muito longo (máx. 200 caracteres).' }, { status: 400 })
+  }
 
   let content: string
   try {
@@ -32,10 +41,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 422 })
   }
 
+  const safeFilename = file.name.replace(/[^\w\-. ]/g, '_').slice(0, 255)
   const db = getDb()
   const result = db.prepare(
     `INSERT INTO templates (name, filename, content) VALUES (?, ?, ?)`
-  ).run(name, file.name, content)
+  ).run(name, safeFilename, content)
 
   return NextResponse.json({ id: result.lastInsertRowid, name, filename: file.name })
 }

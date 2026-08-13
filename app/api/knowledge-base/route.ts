@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { extractText } from '@/lib/extractText'
 import { chunkText, generateEmbedding, countKbDocsForCategory } from '@/lib/rag'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
+
+const KB_MAX_DOCS_PER_CATEGORY = 100
 
 export async function GET(req: NextRequest) {
   const db = getDb()
@@ -20,6 +23,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req)
+  if (!checkRateLimit(ip, 10 * 60 * 1000, 20)) {
+    return NextResponse.json({ error: 'Muitas requisições. Tente novamente em 10 minutos.' }, { status: 429 })
+  }
+
   let formData: FormData
   try {
     formData = await req.formData()
@@ -33,6 +41,14 @@ export async function POST(req: NextRequest) {
 
   if (!name || !category || !file) {
     return NextResponse.json({ error: 'Nome, categoria e arquivo são obrigatórios.' }, { status: 400 })
+  }
+  if (name.length > 200) {
+    return NextResponse.json({ error: 'Nome muito longo (máx. 200 caracteres).' }, { status: 400 })
+  }
+
+  const existingCount = countKbDocsForCategory(category)
+  if (existingCount >= KB_MAX_DOCS_PER_CATEGORY) {
+    return NextResponse.json({ error: `Limite de ${KB_MAX_DOCS_PER_CATEGORY} documentos por categoria atingido.` }, { status: 422 })
   }
 
   let text: string
@@ -66,7 +82,8 @@ export async function POST(req: NextRequest) {
     }
 
     const insertAll = db.transaction(() => {
-      const docResult = insertDoc.run(name, category, file.name, chunks.length)
+      const safeFilename = file.name.replace(/[^\w\-. ]/g, '_').slice(0, 255)
+      const docResult = insertDoc.run(name, category, safeFilename, chunks.length)
       const docId = docResult.lastInsertRowid as number
       for (let i = 0; i < chunks.length; i++) {
         insertChunk.run(docId, i, chunks[i], JSON.stringify(embeddings[i]))

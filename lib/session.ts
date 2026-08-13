@@ -4,8 +4,13 @@ export interface SessionData {
   authenticated?: boolean
 }
 
+const SESSION_PASSWORD = process.env.SESSION_PASSWORD
+if (!SESSION_PASSWORD) {
+  throw new Error('[LexGuard] SESSION_PASSWORD não configurado. Defina no .env.local (mínimo 32 chars).')
+}
+
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_PASSWORD ?? 'changeme-set-a-real-32char-secret!!',
+  password: SESSION_PASSWORD,
   cookieName: 'lexguard_session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',

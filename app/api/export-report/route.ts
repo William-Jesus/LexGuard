@@ -25,13 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Dados de análise inválidos', code: 'INVALID_ANALYSIS' }, { status: 400 })
   }
 
+  const safeName = meta.contractName.replace(/[^\w\-. ]/g, '_').replace(/\s+/g, '-').slice(0, 100)
+
   try {
     if (format === 'pdf') {
       const buffer = await generatePdfReport(validated.data, meta)
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="lexguard-${meta.contractName.replace(/\s+/g, '-')}.pdf"`,
+          'Content-Disposition': `attachment; filename="lexguard-${safeName}.pdf"`,
         },
       })
     } else {
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
       return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'Content-Disposition': `attachment; filename="lexguard-${meta.contractName.replace(/\s+/g, '-')}.docx"`,
+          'Content-Disposition': `attachment; filename="lexguard-${safeName}.docx"`,
         },
       })
     }

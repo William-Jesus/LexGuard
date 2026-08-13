@@ -5,29 +5,14 @@ import { analyzeContract } from '@/lib/openaiContractAnalysis'
 import { EXTRACTION_ERROR_MESSAGE } from '@/types/contract'
 import { getDb } from '@/lib/db'
 import { searchKnowledgeBase, formatKbContext, countKbDocsForCategory } from '@/lib/rag'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 const MAX_ESTIMATED_TOKENS = 100_000
 const PROMPT_INJECTION_PATTERN = /ignore\s+(previous|all|prior)\s+instructions?|<\s*system\s*>|system\s*:/i
 
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-const RATE_WINDOW_MS = 15 * 60 * 1000
-const RATE_MAX = 5
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    return true
-  }
-  if (entry.count >= RATE_MAX) return false
-  entry.count++
-  return true
-}
-
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  if (!checkRateLimit(ip)) {
+  const ip = getClientIp(req)
+  if (!checkRateLimit(ip, 15 * 60 * 1000, 5)) {
     return NextResponse.json(
       { error: 'Muitas requisições. Tente novamente em 15 minutos.', code: 'RATE_LIMITED' },
       { status: 429 }
@@ -62,6 +47,11 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : EXTRACTION_ERROR_MESSAGE
     return NextResponse.json({ error: msg, code: 'EXTRACTION_FAILED' }, { status: 422 })
+  }
+
+  if (PROMPT_INJECTION_PATTERN.test(contractText)) {
+    console.warn(`[LexGuard] Possível prompt injection detectado no conteúdo do contrato | ip=${ip}`)
+    contractText = contractText.replace(PROMPT_INJECTION_PATTERN, '[CONTEÚDO REMOVIDO]')
   }
 
   let modelText: string | undefined
@@ -99,7 +89,7 @@ export async function POST(req: NextRequest) {
   }
 
   const refLength = (modelText?.length ?? 0) + (kbContext?.length ?? 0)
-  const estimatedTokens = Math.ceil((contractText.length + refLength) / 4)
+  const estimatedTokens = Math.ceil((contractText.length + refLength) / 3)
   if (estimatedTokens > MAX_ESTIMATED_TOKENS) {
     return NextResponse.json(
       { error: 'Contrato muito longo para análise. Reduza o documento e tente novamente.', code: 'CONTENT_TOO_LARGE' },
@@ -119,10 +109,11 @@ export async function POST(req: NextRequest) {
 
     const analyzedAt = new Date().toISOString()
     try {
+      const safeFilename = contractFile.name.replace(/[^\w\-. ]/g, '_').slice(0, 255)
       getDb().prepare(
         `INSERT INTO analyses (filename, contract_type, risk_level, summary, full_analysis, analyzed_at)
          VALUES (?, ?, ?, ?, ?, ?)`
-      ).run(contractFile.name, contractType, analysis.generalRisk, analysis.executiveSummary, JSON.stringify(analysis), analyzedAt)
+      ).run(safeFilename, contractType, analysis.generalRisk, analysis.executiveSummary, JSON.stringify(analysis), analyzedAt)
     } catch (dbErr) {
       console.error('[LexGuard] failed to save analysis to db:', dbErr)
     }
