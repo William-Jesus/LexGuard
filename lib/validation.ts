@@ -53,11 +53,7 @@ export function validateUploadPayload(formData: FormData): ValidationError | nul
   const contractErr = validateFile(contractFile, 'Contrato')
   if (contractErr) return contractErr
 
-  // modelFile é obrigatório apenas quando não há templateId
-  if (!templateId) {
-    if (!modelFile || modelFile.size === 0) {
-      return { code: 'MISSING_MODEL', message: 'Arquivo do modelo aprovado é obrigatório.' }
-    }
+  if (modelFile && modelFile.size > 0) {
     const modelErr = validateFile(modelFile, 'Modelo aprovado')
     if (modelErr) return modelErr
   }
