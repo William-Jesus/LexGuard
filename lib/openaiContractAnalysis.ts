@@ -68,6 +68,14 @@ ${params.observations ? `Observações do revisor: ${params.observations}` : ''}
 ${perspectiveNote}
 Base de referência disponível: ${hasModel ? 'modelo aprovado' : hasKb ? `base da empresa (${params.kbContext?.split('\n').filter(l => l.startsWith('[')).length ?? 0} trechos)` : 'nenhuma'}
 
+REGRAS DE COMPLETUDE — OBRIGATÓRIAS:
+- Liste TODOS os problemas encontrados. NÃO limite o número de itens em nenhuma lista.
+- Se encontrar 6 pontos críticos, liste os 6. Se encontrar 8 cláusulas ausentes, liste as 8.
+- Para CADA criticalPoint identificado, inclua o ajuste correspondente em suggestedAdjustments com o texto sugerido concreto.
+- Para CADA modelDivergence identificada, inclua também em suggestedAdjustments o texto corrigido.
+- Nunca deixe suggestedText vazio — sempre forneça o texto exato a ser inserido ou substituído no contrato.
+- Para erros de prazo/data: calcule e indique as datas corretas explicitamente.
+
 === CONTRATO A REVISAR ===
 ${params.contractText}
 
@@ -75,7 +83,7 @@ ${referenceSection}
 
 Retorne a análise no seguinte formato JSON:
 {
-  "executiveSummary": "resumo executivo direto ao ponto, do ponto de vista da empresa: principais riscos identificados e urgência de correção",
+  "executiveSummary": "resumo executivo direto ao ponto, do ponto de vista da empresa: principais riscos identificados e urgência de correção. Cite os problemas mais graves pelo nome.",
   "contractType": "",
   "mainData": {
     "parties": [],
@@ -89,11 +97,11 @@ Retorne a análise no seguinte formato JSON:
     "mainObligations": []
   },
   "generalRisk": "baixo | medio | alto",
-  "criticalPoints": [{ "title": "", "riskLevel": "baixo | medio | alto", "description": "descreva o risco para a empresa com referência legal quando aplicável", "recommendation": "ação concreta que a empresa deve tomar" }],
-  "missingClauses": [{ "clause": "", "whyItMatters": "por que a ausência expõe a empresa", "suggestion": "texto sugerido para incluir" }],
-  "modelDivergences": [{ "topic": "", "contractTextSummary": "o que o contrato diz", "modelTextSummary": "o que o padrão da empresa diz / o que a lei exige", "difference": "qual é a divergência", "recommendation": "" }],
-  "suggestedAdjustments": [{ "clause": "", "currentIssue": "", "suggestedText": "", "requiresHumanValidation": true }],
-  "humanValidationChecklist": [{ "item": "", "status": "pending" }],
+  "criticalPoints": [{ "title": "nome curto do problema", "riskLevel": "baixo | medio | alto", "description": "descreva o risco para a empresa com artigo de lei quando aplicável, citando valores/datas reais do contrato", "recommendation": "ação concreta e específica que a empresa deve tomar agora" }],
+  "missingClauses": [{ "clause": "nome da cláusula ausente", "whyItMatters": "por que a ausência expõe a empresa a risco legal ou financeiro", "suggestion": "texto completo da cláusula sugerida para incluir no contrato" }],
+  "modelDivergences": [{ "topic": "", "contractTextSummary": "o que o contrato diz atualmente", "modelTextSummary": "o que o padrão da empresa exige / o que a lei determina", "difference": "qual é a divergência e o impacto para a empresa", "recommendation": "como corrigir" }],
+  "suggestedAdjustments": [{ "clause": "nome da cláusula a ajustar", "currentIssue": "problema atual descrito de forma objetiva", "suggestedText": "TEXTO COMPLETO e pronto para substituir no contrato — nunca deixar em branco", "requiresHumanValidation": true }],
+  "humanValidationChecklist": [{ "item": "ação específica que o jurídico deve validar", "status": "pending" }],
   "mandatoryDisclaimer": "Esta análise foi gerada por IA e deve ser validada por um profissional jurídico antes de qualquer decisão ou uso formal."
 }`
 
