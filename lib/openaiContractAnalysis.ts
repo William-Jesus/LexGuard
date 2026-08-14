@@ -5,7 +5,30 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
-const SYSTEM_PROMPT = `Você é um revisor contratual especializado. Sua função é analisar contratos juridicamente e identificar riscos, cláusulas ausentes, divergências em relação ao modelo aprovado e sugerir ajustes.
+const SYSTEM_PROMPT = `Você é um revisor contratual especializado em direito do trabalho e contratos empresariais brasileiros, atuando EXCLUSIVAMENTE na defesa dos interesses da empresa CONTRATANTE/EMPREGADORA.
+
+Sua missão é identificar tudo que fragiliza a empresa: erros jurídicos, cláusulas ausentes, imprecisões que um advogado trabalhista do outro lado poderia explorar em ação judicial.
+
+PERSPECTIVA OBRIGATÓRIA: analise sempre do ponto de vista da empresa empregadora/contratante. Riscos = riscos para a EMPRESA, não para o funcionário ou prestador.
+
+Legislação de referência principal: CLT, LGPD (Lei 13.709/2018), Código Civil. Para contratos em corretoras/consultorias de seguros: normas SUSEP e ANVEP.
+
+Checklist obrigatório de análise (verifique cada item):
+1. Qualificação completa das partes — endereço, CPF/CNPJ, RG, estado civil (viabiliza notificações válidas por AR em caso de abandono de emprego)
+2. Prazo e prorrogação — para contrato de experiência: máximo 90 dias em até 2 períodos (Art. 445 CLT). Prorrogação além desse prazo converte automaticamente em contrato por prazo indeterminado
+3. Função e atribuições detalhadas — vago = passivo. Descreva as tarefas reais para evitar desvio de função
+4. Remuneração, comissões e variáveis — se houver comissão: especificar base de cálculo, incidência de DSR, estorno em cancelamento
+5. Banco de horas — se usar compensação: exige Acordo Individual escrito (máx. 6 meses, Art. 59 CLT) ou Acordo Coletivo
+6. LGPD e confidencialidade — obrigatório quando a empresa lida com dados pessoais de clientes (seguros, saúde, financeiro)
+7. Cláusula de atualização cadastral e AR — sem ela, notificação de abandono de emprego pode ser invalidada judicialmente
+8. Cláusula de não-concorrência e não-aliciamento — quando aplicável ao setor/cargo
+9. Foro e jurisdição — sempre o município da empresa
+10. Propriedade intelectual — produções durante o contrato pertencem à empresa
+
+Quando a base de contratos da empresa estiver disponível:
+- Use os padrões e cláusulas aprovados como referência direta
+- Aponte explicitamente o que o contrato analisado tem de diferente dos padrões da empresa
+- Identifique cláusulas presentes nos contratos aprovados que estão ausentes no contrato analisado
 
 Regras absolutas:
 - Nunca declare que um contrato está aprovado juridicamente ou que está correto
@@ -13,8 +36,7 @@ Regras absolutas:
 - Toda sugestão deve ter requiresHumanValidation: true
 - Retorne EXCLUSIVAMENTE JSON válido, sem markdown, sem texto fora do JSON
 - O campo mandatoryDisclaimer deve ser exatamente: "Esta análise foi gerada por IA e deve ser validada por um profissional jurídico antes de qualquer decisão ou uso formal."
-
-Analise os seguintes pontos: partes envolvidas, objeto do contrato, prazo, valor e pagamento, multas e penalidades, rescisão, foro e jurisdição, confidencialidade, LGPD/privacidade, propriedade intelectual, riscos trabalhistas, obrigações principais, cláusulas ausentes relevantes, divergências em relação ao modelo aprovado.`
+- Seja específico: cite artigos de lei, mencione os valores/datas/nomes do contrato analisado, não seja genérico`
 
 export async function analyzeContract(params: {
   contractText: string
@@ -27,19 +49,24 @@ export async function analyzeContract(params: {
   const model = process.env.OPENAI_MODEL ?? 'gpt-4o'
   const start = Date.now()
 
-  const referenceSection = params.modelText
-    ? `=== MODELO APROVADO ===\n${params.modelText}`
-    : params.kbContext
-      ? `=== BASE DE CONTRATOS DA EMPRESA ===\n${params.kbContext}`
-      : '=== SEM MODELO DE REFERÊNCIA ==='
+  const hasKb = !!params.kbContext
+  const hasModel = !!params.modelText
 
-  const kbNote = !params.modelText && params.kbContext
-    ? '\nNota: O campo "modelDivergences" deve listar divergências em relação aos padrões encontrados na base de contratos da empresa.'
-    : ''
+  const referenceSection = params.modelText
+    ? `=== MODELO APROVADO (use como referência principal) ===\n${params.modelText}`
+    : params.kbContext
+      ? `=== PADRÕES DE CONTRATOS APROVADOS DA EMPRESA (trechos relevantes da base de conhecimento) ===
+Use esses padrões como referência: compare o contrato analisado com eles e aponte divergências no campo "modelDivergences".
+${params.kbContext}`
+      : '=== NENHUMA BASE DE REFERÊNCIA DISPONÍVEL — analise apenas com base na legislação vigente ==='
+
+  const perspectiveNote = `LEMBRE-SE: analise protegendo os interesses da empresa ${params.contractType.includes('Trabalhista') || params.contractType.includes('PJ') ? 'empregadora/contratante' : 'contratante'}. Identifique o que a expõe a risco legal ou financeiro.`
 
   const userPrompt = `Tipo de contrato: ${params.contractType}
 Nome: ${params.contractName}
-${params.observations ? `Observações adicionais: ${params.observations}` : ''}${kbNote}
+${params.observations ? `Observações do revisor: ${params.observations}` : ''}
+${perspectiveNote}
+Base de referência disponível: ${hasModel ? 'modelo aprovado' : hasKb ? `base da empresa (${params.kbContext?.split('\n').filter(l => l.startsWith('[')).length ?? 0} trechos)` : 'nenhuma'}
 
 === CONTRATO A REVISAR ===
 ${params.contractText}
@@ -48,7 +75,7 @@ ${referenceSection}
 
 Retorne a análise no seguinte formato JSON:
 {
-  "executiveSummary": "",
+  "executiveSummary": "resumo executivo direto ao ponto, do ponto de vista da empresa: principais riscos identificados e urgência de correção",
   "contractType": "",
   "mainData": {
     "parties": [],
@@ -62,9 +89,9 @@ Retorne a análise no seguinte formato JSON:
     "mainObligations": []
   },
   "generalRisk": "baixo | medio | alto",
-  "criticalPoints": [{ "title": "", "riskLevel": "baixo | medio | alto", "description": "", "recommendation": "" }],
-  "missingClauses": [{ "clause": "", "whyItMatters": "", "suggestion": "" }],
-  "modelDivergences": [{ "topic": "", "contractTextSummary": "", "modelTextSummary": "", "difference": "", "recommendation": "" }],
+  "criticalPoints": [{ "title": "", "riskLevel": "baixo | medio | alto", "description": "descreva o risco para a empresa com referência legal quando aplicável", "recommendation": "ação concreta que a empresa deve tomar" }],
+  "missingClauses": [{ "clause": "", "whyItMatters": "por que a ausência expõe a empresa", "suggestion": "texto sugerido para incluir" }],
+  "modelDivergences": [{ "topic": "", "contractTextSummary": "o que o contrato diz", "modelTextSummary": "o que o padrão da empresa diz / o que a lei exige", "difference": "qual é a divergência", "recommendation": "" }],
   "suggestedAdjustments": [{ "clause": "", "currentIssue": "", "suggestedText": "", "requiresHumanValidation": true }],
   "humanValidationChecklist": [{ "item": "", "status": "pending" }],
   "mandatoryDisclaimer": "Esta análise foi gerada por IA e deve ser validada por um profissional jurídico antes de qualquer decisão ou uso formal."
@@ -79,7 +106,7 @@ Retorne a análise no seguinte formato JSON:
         { role: 'user', content: userPrompt },
       ],
     },
-    { timeout: 30000 }
+    { timeout: 60000 }
   )
 
   const raw = response.choices[0]?.message?.content ?? ''
@@ -95,6 +122,6 @@ Retorne a análise no seguinte formato JSON:
     throw new Error(`INVALID_AI_RESPONSE: ${validated.error.issues.map(i => i.message).join(', ')}`)
   }
 
-  console.log(`[LexGuard] analysis ok | type=${params.contractType} | risk=${validated.data.generalRisk} | kb=${!!params.kbContext} | duration=${duration}ms`)
+  console.log(`[LexGuard] analysis ok | type=${params.contractType} | risk=${validated.data.generalRisk} | kb=${hasKb} | model=${hasModel} | duration=${duration}ms`)
   return validated.data
 }
