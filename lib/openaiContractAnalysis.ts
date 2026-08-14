@@ -5,6 +5,25 @@ function getOpenAI() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
+function toRiskLevel(value: unknown): string {
+  if (typeof value !== 'string') return 'medio'
+  const v = value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  if (v === 'alto' || v === 'high' || v === 'critico' || v === 'critical') return 'alto'
+  if (v === 'baixo' || v === 'low' || v === 'minor') return 'baixo'
+  return 'medio'
+}
+
+function normalizeRiskLevels(obj: Record<string, unknown>) {
+  if (obj.generalRisk) obj.generalRisk = toRiskLevel(obj.generalRisk)
+  for (const arr of ['criticalPoints', 'missingClauses', 'modelDivergences', 'suggestedAdjustments'] as const) {
+    if (Array.isArray(obj[arr])) {
+      for (const item of obj[arr] as Record<string, unknown>[]) {
+        if ('riskLevel' in item) item.riskLevel = toRiskLevel(item.riskLevel)
+      }
+    }
+  }
+}
+
 const SYSTEM_PROMPT = `Você é um revisor contratual especializado em direito do trabalho e contratos empresariais brasileiros, atuando EXCLUSIVAMENTE na defesa dos interesses da empresa CONTRATANTE/EMPREGADORA.
 
 Sua missão é identificar tudo que fragiliza a empresa: erros jurídicos, cláusulas ausentes, imprecisões que um advogado trabalhista do outro lado poderia explorar em ação judicial.
@@ -121,6 +140,7 @@ Retorne a análise no seguinte formato JSON:
   if (!raw) throw new Error('AI response content is empty')
 
   const parsed = JSON.parse(raw)
+  normalizeRiskLevels(parsed)
   const validated = ContractAnalysisSchema.safeParse(parsed)
 
   const duration = Date.now() - start
