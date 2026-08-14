@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getIronSession } from 'iron-session'
-import type { SessionData } from '@/lib/session'
-
-const SESSION_PASSWORD = process.env.SESSION_PASSWORD ?? 'changeme-set-a-real-32char-secret!!'
+import { sessionOptions, SessionData } from '@/lib/session'
 
 const PUBLIC = ['/login', '/api/auth/']
 
@@ -13,11 +11,7 @@ export async function proxy(req: NextRequest) {
   if (pathname.startsWith('/_next') || pathname === '/favicon.ico') return NextResponse.next()
 
   const res = NextResponse.next()
-  const session = await getIronSession<SessionData>(req, res, {
-    password: SESSION_PASSWORD,
-    cookieName: 'lexguard_session',
-    cookieOptions: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'lax' },
-  })
+  const session = await getIronSession<SessionData>(req, res, sessionOptions)
 
   if (!session.authenticated) {
     return NextResponse.redirect(new URL('/login', req.url))
